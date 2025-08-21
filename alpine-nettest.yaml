@@ -7,6 +7,9 @@ spec:
   containers:
     - name: alpine
       image: alpine:latest
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       command:
         - /bin/sh
         - -c
