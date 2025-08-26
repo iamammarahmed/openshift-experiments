@@ -21,6 +21,8 @@ spec:
                   value: sender@example.com
                 - name: EMAIL_TO
                   value: client@example.com
+                - name: AWS_REGION
+                  value: us-east-1
               envFrom:
                 - secretRef:
                     name: s3-credentials

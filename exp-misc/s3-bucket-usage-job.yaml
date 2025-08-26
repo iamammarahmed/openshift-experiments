@@ -14,6 +14,8 @@ spec:
               value: my-bucket
             - name: BUCKET_CAPACITY_GB
               value: "100"
+            - name: AWS_REGION
+              value: us-east-1
           envFrom:
             - secretRef:
                 name: s3-credentials
