@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-bucket-usage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3-bucket-usage
+  template:
+    metadata:
+      labels:
+        app: s3-bucket-usage
+    spec:
+      containers:
+        - name: usage
+          image: amazon/aws-cli:latest
+          env:
+            - name: BUCKET
+              value: my-bucket
+            - name: BUCKET_CAPACITY_GB
+              value: "100"
+          envFrom:
+            - secretRef:
+                name: s3-credentials
+          command:
+            - /bin/sh
+            - -c
+            - |
+              USED=$(aws s3 ls s3://$BUCKET --recursive --summarize | awk '/Total Size/ {print $3}')
+              CAPACITY=$((BUCKET_CAPACITY_GB*1024*1024*1024))
+              FREE=$((CAPACITY-USED))
+              echo "Bucket capacity: $CAPACITY bytes"
+              echo "Used: $USED bytes"
+              echo "Free: $FREE bytes"
+              sleep infinity
