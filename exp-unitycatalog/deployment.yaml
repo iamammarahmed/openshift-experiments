@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uc-deployment
+  namespace: ${UC_NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uc
+  template:
+    metadata:
+      labels:
+        app: uc
+    spec:
+      containers:
+        - name: uc
+          image: ${UC_IMAGE}
+          ports:
+            - containerPort: ${UC_PORT}
+          envFrom:
+            - configMapRef:
+                name: uc-config
+            - secretRef:
+                name: uc-secrets
