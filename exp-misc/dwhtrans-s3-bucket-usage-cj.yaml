@@ -72,3 +72,4 @@ spec:
                     echo "Used after: $USED_AFTER_GB GB"
                     echo "Free after: $FREE_AFTER_GB GB"
                   fi
+
