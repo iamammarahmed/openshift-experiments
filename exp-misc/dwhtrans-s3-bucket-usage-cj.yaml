@@ -53,9 +53,11 @@ spec:
                       if [ $FILE_EPOCH -lt $THRESHOLD ]; then
                         SIZE=$(echo "$line" | awk '{print $3}')
                         KEY=$(echo "$line" | awk '{print $4}')
-                        aws --endpoint-url "$S3_ENDPOINT" s3 rm s3://$BUCKET/$KEY
-                        DELETED_COUNT=$((DELETED_COUNT+1))
-                        DELETED_BYTES=$((DELETED_BYTES+SIZE))
+                        if [ "${KEY: -1}" != "/" ]; then
+                          aws --endpoint-url "$S3_ENDPOINT" s3 rm s3://$BUCKET/$KEY
+                          DELETED_COUNT=$((DELETED_COUNT+1))
+                          DELETED_BYTES=$((DELETED_BYTES+SIZE))
+                        fi
                       fi
                     done < "$TMP"
                     rm "$TMP"
