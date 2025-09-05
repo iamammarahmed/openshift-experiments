@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-scripts-pvc2-cleanup-dep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-scripts-pvc2-cleanup
+  template:
+    metadata:
+      labels:
+        app: spark-scripts-pvc2-cleanup
+    spec:
+      containers:
+        - name: cleanup
+          image: alpine:latest
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          command:
+            - /bin/sh
+            - -c
+            - |
+              USED_PERCENT=$(df -P /scripts | awk 'NR==2 {print $5}' | tr -d '%')
+              echo "Usage: ${USED_PERCENT}%"
+              if [ "$USED_PERCENT" -ge 99 ]; then
+                echo "Usage above 99%, deleting all data in /scripts"
+                rm -rf /scripts/*
+              fi
+              sleep infinity
+      volumes:
+        - name: scripts
+          persistentVolumeClaim:
+            claimName: spark-scripts-pvc2
