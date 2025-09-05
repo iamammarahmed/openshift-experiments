@@ -17,10 +17,6 @@ spec:
                   value: my-bucket
                 - name: BUCKET_CAPACITY_GB
                   value: "100"
-                - name: EMAIL_FROM
-                  value: sender@example.com
-                - name: EMAIL_TO
-                  value: client@example.com
                 - name: AWS_REGION
                   value: us-east-1
               envFrom:
@@ -68,7 +64,8 @@ spec:
                     USED_AFTER_GB=$(awk "BEGIN {printf \"%.2f\", $USED_AFTER/1024/1024/1024}")
                     FREE_AFTER_GB=$(awk "BEGIN {printf \"%.2f\", $FREE_AFTER_BYTES/1024/1024/1024}")
                     DELETED_GB=$(awk "BEGIN {printf \"%.2f\", $DELETED_BYTES/1024/1024/1024}")
-                    MESSAGE=$(printf "Bucket: %s\nDeleted objects: %s\nDeleted size: %s GB\nCapacity: %s GB\nUsed before: %s GB (%s%%)\nFree before: %s GB\nUsed after: %s GB\nFree after: %s GB\n" "$BUCKET" "$DELETED_COUNT" "$DELETED_GB" "$BUCKET_CAPACITY_GB" "$USED_GB" "$USAGE_PERCENT" "$FREE_GB" "$USED_AFTER_GB" "$FREE_AFTER_GB")
-                    unset AWS_ENDPOINT_URL
-                    aws ses send-email --from "$EMAIL_FROM" --destination "ToAddresses=$EMAIL_TO" --message "Subject={Data='S3 cleanup report'},Body={Text={Data='$MESSAGE'}}"
+                    echo "Deleted objects: $DELETED_COUNT"
+                    echo "Deleted size: $DELETED_GB GB"
+                    echo "Used after: $USED_AFTER_GB GB"
+                    echo "Free after: $FREE_AFTER_GB GB"
                   fi
