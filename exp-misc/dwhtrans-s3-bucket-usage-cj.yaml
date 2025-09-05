@@ -1,0 +1,73 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dwhtrans-s3-bucket-usage-cj
+spec:
+  schedule: "*/20 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: usage
+              image: amazon/aws-cli:latest
+              env:
+                - name: BUCKET
+                  value: my-bucket
+                - name: BUCKET_CAPACITY_GB
+                  value: "100"
+                - name: AWS_REGION
+                  value: us-east-1
+              envFrom:
+                - secretRef:
+                    name: s3-credentials
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  S3_ENDPOINT="$AWS_ENDPOINT_URL"
+                  if [ "${S3_ENDPOINT#http}" = "$S3_ENDPOINT" ]; then
+                    S3_ENDPOINT="http://$S3_ENDPOINT"
+                  fi
+                  USED=$(aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://$BUCKET --recursive --summarize | awk '/Total Size/ {print $3}')
+                  CAPACITY_BYTES=$((BUCKET_CAPACITY_GB*1024*1024*1024))
+                  FREE_BYTES=$((CAPACITY_BYTES-USED))
+                  USED_GB=$(awk "BEGIN {printf \"%.2f\", $USED/1024/1024/1024}")
+                  FREE_GB=$(awk "BEGIN {printf \"%.2f\", $FREE_BYTES/1024/1024/1024}")
+                  USAGE_PERCENT=$((USED*100/CAPACITY_BYTES))
+                  echo "Bucket capacity: $BUCKET_CAPACITY_GB GB"
+                  echo "Used: $USED_GB GB"
+                  echo "Free: $FREE_GB GB"
+                  echo "Usage: $USAGE_PERCENT%"
+                  if [ "$USAGE_PERCENT" -gt 60 ]; then
+                    echo "Usage exceeds 60%, deleting objects older than 30 days"
+                    THRESHOLD=$(date -d '30 days ago' +%s)
+                    TMP=$(mktemp)
+                    aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://$BUCKET --recursive > "$TMP"
+                    DELETED_COUNT=0
+                    DELETED_BYTES=0
+                    while read -r line; do
+                      FILE_DATE=$(echo "$line" | awk '{print $1" "$2}')
+                      FILE_EPOCH=$(date -d "$FILE_DATE" +%s)
+                      if [ $FILE_EPOCH -lt $THRESHOLD ]; then
+                        SIZE=$(echo "$line" | awk '{print $3}')
+                        KEY=$(echo "$line" | awk '{print $4}')
+                        if [ "${KEY: -1}" != "/" ]; then
+                          aws --endpoint-url "$S3_ENDPOINT" s3 rm s3://$BUCKET/$KEY
+                          DELETED_COUNT=$((DELETED_COUNT+1))
+                          DELETED_BYTES=$((DELETED_BYTES+SIZE))
+                        fi
+                      fi
+                    done < "$TMP"
+                    rm "$TMP"
+                    USED_AFTER=$(aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://$BUCKET --recursive --summarize | awk '/Total Size/ {print $3}')
+                    FREE_AFTER_BYTES=$((CAPACITY_BYTES-USED_AFTER))
+                    USED_AFTER_GB=$(awk "BEGIN {printf \"%.2f\", $USED_AFTER/1024/1024/1024}")
+                    FREE_AFTER_GB=$(awk "BEGIN {printf \"%.2f\", $FREE_AFTER_BYTES/1024/1024/1024}")
+                    DELETED_GB=$(awk "BEGIN {printf \"%.2f\", $DELETED_BYTES/1024/1024/1024}")
+                    echo "Deleted objects: $DELETED_COUNT"
+                    echo "Deleted size: $DELETED_GB GB"
+                    echo "Used after: $USED_AFTER_GB GB"
+                    echo "Free after: $FREE_AFTER_GB GB"
+                  fi
