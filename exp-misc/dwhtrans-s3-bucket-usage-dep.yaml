@@ -65,6 +65,5 @@ spec:
                     done < "$TMP"
                     rm "$TMP"
                   fi
-                  sleep 1200
                 done
-
+                sleep infinity
