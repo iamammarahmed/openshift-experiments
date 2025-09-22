@@ -17,5 +17,5 @@ spec:
           apk add --no-cache \
             --repository http://dl-cdn.alpinelinux.org/alpine/latest-stable/main \
             --repository http://dl-cdn.alpinelinux.org/alpine/latest-stable/community \
-            iputils busybox-extras curl && \
+            iputils busybox-extras curl openssl && \
           sleep infinity
