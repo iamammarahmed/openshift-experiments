@@ -1,0 +1,66 @@
+hub:
+  config:
+    JupyterHub:
+      authenticator_class: dummy
+  extraEnv:
+    UNITYCATALOG_URL: "https://unitycatalog-unity-catalog.apps.example.com"
+    UNITYCATALOG_CATALOG: "main"
+  extraConfig:
+    00-spark-env: |
+      c.Spawner.environment.setdefault("SPARK_HOME", "/usr/local/spark")
+      c.Spawner.environment.setdefault("SPARK_CONF_DIR", "/usr/local/spark/conf")
+proxy:
+  secretToken: "REPLACE_WITH_RANDOM_TOKEN"
+singleuser:
+  image:
+    name: quay.io/jupyter/pyspark-notebook
+    tag: latest
+  cmd: null
+  defaultUrl: /lab
+  extraEnv:
+    UNITYCATALOG_ENABLED: "true"
+    SPARK_EXTRA_CLASSPATH: "/usr/local/share/unitycatalog/*"
+  extraEnvFrom:
+    - secretRef:
+        name: netapp-s3-credentials
+    - secretRef:
+        name: unitycatalog-service-secret
+  storage:
+    type: dynamic
+    capacity: 10Gi
+  extraVolumes:
+    - name: spark-defaults
+      configMap:
+        name: jupyterhub-spark-defaults
+    - name: unitycatalog-ca
+      secret:
+        secretName: unitycatalog-service-secret
+        items:
+          - key: UNITYCATALOG_JWT_SIGNING_KEY
+            path: jwt.key
+  extraVolumeMounts:
+    - name: spark-defaults
+      mountPath: /etc/jupyter/spark-config
+      readOnly: true
+    - name: unitycatalog-ca
+      mountPath: /etc/unitycatalog
+      readOnly: true
+  lifecycleHooks:
+    postStart:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - |
+            if [ -f /usr/local/spark/conf/spark-defaults.conf ]; then
+              echo "Spark defaults already configured"
+            else
+              cp /etc/jupyter/spark-config/spark-defaults.conf /usr/local/spark/conf/spark-defaults.conf
+            fi
+            if [ -f /etc/jupyter/spark-config/spark-env.sh ]; then
+              cp /etc/jupyter/spark-config/spark-env.sh /usr/local/spark/conf/spark-env.sh
+              chmod +x /usr/local/spark/conf/spark-env.sh
+            fi
+scheduling:
+  userScheduler:
+    enabled: false

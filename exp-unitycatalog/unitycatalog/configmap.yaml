@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unitycatalog-config
+  namespace: unity-catalog
+  labels:
+    app.kubernetes.io/name: unitycatalog
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: unity-catalog
+data:
+  UNITYCATALOG_HTTP_PORT: "8080"
+  UNITYCATALOG_LOG_LEVEL: "INFO"
+  UNITYCATALOG_ENABLE_METRICS: "true"
+  UNITYCATALOG_JDBC_MAX_CONNECTIONS: "20"
+  UNITYCATALOG_JDBC_MIN_IDLE: "2"
+  UNITYCATALOG_JDBC_MAX_IDLE: "8"
+  UNITYCATALOG_JWT_ISSUER: "unitycatalog"
+  UNITYCATALOG_JWT_AUDIENCE: "unitycatalog-clients"
+  UNITYCATALOG_S3_PATH_STYLE_ACCESS: "true"
+  UNITYCATALOG_S3_VALIDATE_CERTIFICATES: "true"
+  UNITYCATALOG_DEFAULT_CATALOG: "main"
+  UNITYCATALOG_ALLOW_AUTO_MIGRATIONS: "true"
+  UNITYCATALOG_HEALTHCHECK_DATASETS: "main.default"
+  UNITYCATALOG_SPARK_CONNECT_ENABLED: "true"
+  UNITYCATALOG_ALLOW_INTERNAL_OBJECT_STORAGE: "true"
