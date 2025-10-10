@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unitycatalog-properties
+  namespace: unity-catalog
+  labels:
+    app.kubernetes.io/name: unitycatalog
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: unity-catalog
+  annotations:
+    description: |
+      Example Unity Catalog OSS property files. Update the values to match your
+      environment before mounting them into the deployment.
+data:
+  server.properties: |
+    # Basic HTTP/Metrics listeners
+    http.host=0.0.0.0
+    http.port=8080
+    metrics.host=0.0.0.0
+    metrics.port=9090
+
+    # JWT issuance defaults to match the env vars shipped with this experiment.
+    jwt.issuer=unitycatalog
+    jwt.audience=unitycatalog-clients
+
+    # Toggle optional features
+    spark.connect.enabled=true
+    storage.allowInternalObjectStore=true
+
+    # Health check dataset used by the bundled readiness probe.
+    healthcheck.datasets=main.default
+  hibernate.properties: |
+    # PostgreSQL dialect and schema validation
+    hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+    hibernate.hbm2ddl.auto=validate
+    hibernate.show_sql=false
+    hibernate.format_sql=false
+
+    # Connection pooling tuned to match the config map defaults
+    hibernate.hikari.maximumPoolSize=20
+    hibernate.hikari.minimumIdle=2
+    hibernate.hikari.idleTimeout=600000
+    hibernate.hikari.connectionTimeout=30000
+
+    # Connection information that lines up with the sample PostgreSQL manifest
+    hibernate.hikari.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
+    hibernate.hikari.dataSource.serverName=unitycatalog-postgresql
+    hibernate.hikari.dataSource.portNumber=5432
+    hibernate.hikari.dataSource.databaseName=unitycatalog
+    hibernate.hikari.dataSource.user=uc_admin
+    # Leave the password empty here so credentials continue to flow from the
+    # Kubernetes secret via the UNITYCATALOG_JDBC_PASSWORD environment variable.

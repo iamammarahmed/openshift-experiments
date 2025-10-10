@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jupyterhub-spark-defaults
+  namespace: unity-catalog
+  labels:
+    app.kubernetes.io/name: jupyterhub
+    app.kubernetes.io/component: notebook
+    app.kubernetes.io/part-of: unity-catalog
+data:
+  spark-defaults.conf: |
+    spark.master                      k8s://https://kubernetes.default:443
+    spark.kubernetes.namespace        unity-catalog
+    spark.kubernetes.container.image  quay.io/jupyter/pyspark-notebook:latest
+    spark.kubernetes.authenticate.driver.serviceAccountName spark-notebook
+    spark.sql.catalogImplementation   in-memory
+    spark.sql.catalog.unity           com.databricks.unity.catalog.SparkCatalog
+    spark.sql.catalog.unity.type      hive
+    spark.sql.catalog.unity.uri       https://unitycatalog-unity-catalog.apps.example.com/api/2.1/unity-catalog
+    spark.sql.catalog.unity.token     ${UNITYCATALOG_ADMIN_API_TOKEN}
+    spark.sql.catalog.unity.s3.endpoint ${UNITYCATALOG_S3_ENDPOINT}
+    spark.sql.catalog.unity.s3.bucket   ${UNITYCATALOG_S3_BUCKET}
+    spark.sql.catalog.unity.s3.access-key ${UNITYCATALOG_S3_ACCESS_KEY}
+    spark.sql.catalog.unity.s3.secret-key ${UNITYCATALOG_S3_SECRET_KEY}
+    spark.hadoop.fs.s3a.path.style.access true
+    spark.hadoop.fs.s3a.endpoint        ${UNITYCATALOG_S3_ENDPOINT}
+    spark.hadoop.fs.s3a.impl            org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.access.key      ${UNITYCATALOG_S3_ACCESS_KEY}
+    spark.hadoop.fs.s3a.secret.key      ${UNITYCATALOG_S3_SECRET_KEY}
+    spark.sql.extensions                io.delta.sql.DeltaSparkSessionExtension
+    spark.sql.catalog.spark_catalog     org.apache.spark.sql.delta.catalog.DeltaCatalog
+  spark-env.sh: |
+    export UNITYCATALOG_URL=https://unitycatalog-unity-catalog.apps.example.com
+    export UNITYCATALOG_TOKEN=${UNITYCATALOG_ADMIN_API_TOKEN}
+    export AWS_ACCESS_KEY_ID=${UNITYCATALOG_S3_ACCESS_KEY}
+    export AWS_SECRET_ACCESS_KEY=${UNITYCATALOG_S3_SECRET_KEY}
