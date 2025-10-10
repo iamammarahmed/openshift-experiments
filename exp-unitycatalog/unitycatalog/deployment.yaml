@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: unitycatalog
+  namespace: unity-catalog
+  labels:
+    app.kubernetes.io/name: unitycatalog
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: unity-catalog
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unitycatalog
+  namespace: unity-catalog
+  labels:
+    app.kubernetes.io/name: unitycatalog
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: unity-catalog
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: unitycatalog
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: unitycatalog
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: unity-catalog
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: unitycatalog
+      containers:
+        - name: api
+          image: ghcr.io/databricks/unity-catalog-oss:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9090
+              name: metrics
+          envFrom:
+            - configMapRef:
+                name: unitycatalog-config
+            - secretRef:
+                name: unitycatalog-service-secret
+          env:
+            - name: UNITYCATALOG_JDBC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: unitycatalog-db-secret
+                  key: UNITYCATALOG_JDBC_PASSWORD
+            - name: UNITYCATALOG_JDBC_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: unitycatalog-db-secret
+                  key: UNITYCATALOG_JDBC_USERNAME
+            - name: UNITYCATALOG_JDBC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: unitycatalog-db-secret
+                  key: UNITYCATALOG_JDBC_URL
+            - name: UNITYCATALOG_JDBC_DRIVER
+              valueFrom:
+                secretKeyRef:
+                  name: unitycatalog-db-secret
+                  key: UNITYCATALOG_JDBC_DRIVER
+            - name: UNITYCATALOG_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netapp-s3-credentials
+                  key: UNITYCATALOG_S3_ACCESS_KEY
+            - name: UNITYCATALOG_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netapp-s3-credentials
+                  key: UNITYCATALOG_S3_SECRET_KEY
+            - name: UNITYCATALOG_S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: netapp-s3-credentials
+                  key: UNITYCATALOG_S3_ENDPOINT
+            - name: UNITYCATALOG_S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: netapp-s3-credentials
+                  key: UNITYCATALOG_S3_REGION
+            - name: UNITYCATALOG_S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: netapp-s3-credentials
+                  key: UNITYCATALOG_S3_BUCKET
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2
+              memory: 4Gi
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations: []
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: unitycatalog

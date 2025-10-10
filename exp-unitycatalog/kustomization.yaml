@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: unity-catalog
+
+resources:
+  - namespace.yaml
+  - secrets/netapp-s3-credentials.yaml
+  - secrets/unitycatalog-db-secret.yaml
+  - secrets/unitycatalog-service-secret.yaml
+  - unitycatalog/configmap.yaml
+  - unitycatalog/postgresql.yaml
+  - unitycatalog/deployment.yaml
+  - unitycatalog/service.yaml
+  - unitycatalog/route.yaml
+  - jupyterhub/spark-defaults-configmap.yaml
+  - spark/serviceaccount.yaml
+
+configurations:
+  - kustomizeconfig.yaml

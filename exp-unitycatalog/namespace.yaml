@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: unity-catalog
+  labels:
+    app.kubernetes.io/name: unity-catalog
+    app.kubernetes.io/part-of: unity-catalog
