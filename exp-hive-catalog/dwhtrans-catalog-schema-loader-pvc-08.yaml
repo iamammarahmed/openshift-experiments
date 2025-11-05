@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dwhtrans-catalog-schema-loader
+  labels:
+    app.kubernetes.io/name: dwhtrans-catalog
+    app.kubernetes.io/part-of: dwhtrans-catalog
+    app.kubernetes.io/component: schema-loader
+    exp.openshift.io/area: hive-catalog
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

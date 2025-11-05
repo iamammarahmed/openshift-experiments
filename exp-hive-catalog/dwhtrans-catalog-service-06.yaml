@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dwhtrans-catalog-service
+  labels:
+    app.kubernetes.io/name: dwhtrans-catalog
+    app.kubernetes.io/part-of: dwhtrans-catalog
+    app.kubernetes.io/component: metastore
+    exp.openshift.io/area: hive-catalog
+spec:
+  selector:
+    app.kubernetes.io/name: dwhtrans-catalog
+    app.kubernetes.io/component: metastore
+  ports:
+    - name: thrift
+      port: 9083
+      targetPort: thrift
+  type: ClusterIP
