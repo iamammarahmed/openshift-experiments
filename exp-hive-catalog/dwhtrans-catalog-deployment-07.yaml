@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dwhtrans-catalog-deployment
+  labels:
+    app.kubernetes.io/name: dwhtrans-catalog
+    app.kubernetes.io/part-of: dwhtrans-catalog
+    app.kubernetes.io/component: metastore
+    exp.openshift.io/area: hive-catalog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dwhtrans-catalog
+      app.kubernetes.io/component: metastore
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dwhtrans-catalog
+        app.kubernetes.io/part-of: dwhtrans-catalog
+        app.kubernetes.io/component: metastore
+        exp.openshift.io/area: hive-catalog
+    spec:
+      serviceAccountName: dwhtrans-catalog-serviceaccount
+      containers:
+        - name: metastore
+          image: quay.io/openshift/origin-hive-metastore:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9083
+              name: thrift
+          env:
+            - name: HIVE_METASTORE_DB_HOST
+              value: dwhtrans-catalog-db
+            - name: HIVE_METASTORE_DB_PORT
+              value: "5432"
+            - name: HIVE_METASTORE_DB_NAME
+              value: metastore
+            - name: HIVE_METASTORE_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-db
+                  key: username
+            - name: HIVE_METASTORE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-db
+                  key: password
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-s3
+                  key: accessKey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-s3
+                  key: secretKey
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-s3
+                  key: region
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-s3
+                  key: endpoint
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: dwhtrans-catalog-s3
+                  key: bucket
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms512m -Xmx1g"
+          readinessProbe:
+            tcpSocket:
+              port: thrift
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: thrift
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          volumeMounts:
+            - name: hive-config
+              mountPath: /opt/hive/conf/hive-site.xml
+              subPath: hive-site.xml
+            - name: hive-config
+              mountPath: /opt/hadoop/conf/core-site.xml
+              subPath: core-site.xml
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: 1
+              memory: 2Gi
+      volumes:
+        - name: hive-config
+          configMap:
+            name: dwhtrans-catalog-config
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 185
+      restartPolicy: Always
