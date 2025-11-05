@@ -23,6 +23,7 @@ manifests=(
   "dwhtrans-catalog-deployment-07.yaml"
   "dwhtrans-catalog-schema-loader-pvc-08.yaml"
   "dwhtrans-catalog-schema-loader-deployment-09.yaml"
+
 )
 
 apply_args=()

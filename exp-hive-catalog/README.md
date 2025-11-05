@@ -82,6 +82,11 @@ script:
   name or annotations, and make matching updates to the `serviceAccountName`
   fields in the PostgreSQL StatefulSet and Hive deployment manifests. The
   schema loader deployment also references the same service account.
+  you apply the manifests yourself.
+* **Service account** – Change the metadata in
+  `dwhtrans-catalog-serviceaccount-01.yaml` if the client requires a specific
+  name or annotations, and make matching updates to the `serviceAccountName`
+  fields in the PostgreSQL StatefulSet and Hive deployment manifests.
 * **Secrets** – Replace the placeholder values in both
   `dwhtrans-catalog-s3-secret-02.yaml` and
   `dwhtrans-catalog-db-secret-04.yaml` with the client's S3 credentials and
@@ -108,6 +113,11 @@ script:
 * **Labels and annotations** – Apply any mandatory governance labels or
   annotations required by the client's cluster policy across all manifests to
   maintain consistency with organizational standards.
+  naming standards, keeping the references in the deployment and StatefulSet in
+  sync.
+* **ConfigMap settings** – Adjust warehouse directories, S3 endpoints, and any
+  other Hive configuration settings in `dwhtrans-catalog-configmap-03.yaml` to
+  match the client's environment.
 
 ## NetApp StorageGRID configuration
 
