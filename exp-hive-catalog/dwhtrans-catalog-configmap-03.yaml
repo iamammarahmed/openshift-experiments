@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${DWT_CONFIGMAP_NAME}
+  labels:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+    app.kubernetes.io/component: ${DWT_COMPONENT_METASTORE}
+    exp.openshift.io/area: ${DWT_LABEL_AREA}
+  annotations:
+    openshift.io/display-name: Hive Metastore Configuration
+    openshift.io/description: |
+      Configuration for the Hive metastore service including JDBC connectivity,
+      storage handler settings, and NetApp S3 warehouse integration. Update the
+      values to match the target environment before deployment.
+data:
+  hive-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+      <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:postgresql://${DWT_DB_SERVICE_NAME}:${DWT_DB_PORT}/${DWT_DB_NAME}</value>
+        <description>JDBC connection URL for the Hive metastore backing database.</description>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>org.postgresql.Driver</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>${DWT_DB_USERNAME}</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>${HIVE_METASTORE_DB_PASSWORD}</value>
+      </property>
+      <property>
+        <name>datanucleus.autoCreateSchema</name>
+        <value>false</value>
+      </property>
+      <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>false</value>
+      </property>
+      <property>
+        <name>hive.metastore.uris</name>
+        <value>thrift://0.0.0.0:${DWT_METASTORE_THRIFT_PORT}</value>
+        <description>Thrift URI where the metastore listens for connections.</description>
+      </property>
+      <property>
+        <name>hive.metastore.metrics.enabled</name>
+        <value>true</value>
+      </property>
+      <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>s3a://${DWT_S3_BUCKET}/warehouse</value>
+        <description>Primary warehouse path hosted on NetApp StorageGRID S3.</description>
+      </property>
+      <property>
+        <name>hive.metastore.warehouse.external.dir</name>
+        <value>s3a://${DWT_S3_BUCKET}/external</value>
+        <description>Location for external tables stored in NetApp StorageGRID S3.</description>
+      </property>
+    </configuration>
+  core-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>s3a://${DWT_S3_BUCKET}</value>
+        <description>Use the NetApp StorageGRID bucket as the default filesystem.</description>
+      </property>
+      <property>
+        <name>fs.s3a.endpoint</name>
+        <value>${DWT_S3_ENDPOINT}</value>
+        <description>NetApp StorageGRID S3 endpoint hostname.</description>
+      </property>
+      <property>
+        <name>fs.s3a.endpoint.region</name>
+        <value>${DWT_S3_REGION}</value>
+      </property>
+      <property>
+        <name>fs.s3a.path.style.access</name>
+        <value>${DWT_S3_PATH_STYLE}</value>
+      </property>
+      <property>
+        <name>fs.s3a.connection.ssl.enabled</name>
+        <value>${DWT_S3_SSL_ENABLED}</value>
+      </property>
+      <property>
+        <name>fs.s3a.aws.credentials.provider</name>
+        <value>org.apache.hadoop.fs.s3a.EnvironmentVariableCredentialsProvider</value>
+        <description>Source S3 credentials from the AWS_* environment variables.</description>
+      </property>
+      <property>
+        <name>fs.s3a.impl.disable.cache</name>
+        <value>true</value>
+      </property>
+    </configuration>

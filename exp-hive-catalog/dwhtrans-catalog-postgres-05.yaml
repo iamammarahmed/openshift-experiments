@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ${DWT_DB_STATEFULSET_NAME}
+  labels:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+    app.kubernetes.io/component: ${DWT_COMPONENT_DATABASE}
+    exp.openshift.io/area: ${DWT_LABEL_AREA}
+spec:
+  serviceName: ${DWT_DB_SERVICE_NAME}
+  replicas: ${DWT_DB_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${DWT_APP_NAME}
+      app.kubernetes.io/component: ${DWT_COMPONENT_DATABASE}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ${DWT_APP_NAME}
+        app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+        app.kubernetes.io/component: ${DWT_COMPONENT_DATABASE}
+        exp.openshift.io/area: ${DWT_LABEL_AREA}
+    spec:
+      serviceAccountName: ${DWT_SERVICE_ACCOUNT_NAME}
+      containers:
+        - name: postgres
+          image: ${DWT_DB_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: ${DWT_DB_PORT}
+              name: postgres
+          env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_DB_SECRET_NAME}
+                  key: username
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_DB_SECRET_NAME}
+                  key: password
+            - name: POSTGRESQL_DATABASE
+              value: ${DWT_DB_NAME}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/pgsql/data
+          resources:
+            requests:
+              cpu: ${DWT_DB_CPU_REQUEST}
+              memory: ${DWT_DB_MEMORY_REQUEST}
+            limits:
+              cpu: ${DWT_DB_CPU_LIMIT}
+              memory: ${DWT_DB_MEMORY_LIMIT}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: ${DWT_APP_NAME}
+          app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+          app.kubernetes.io/component: ${DWT_COMPONENT_DATABASE}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: ${DWT_DB_STORAGE_SIZE}
+        storageClassName: ${DWT_DB_STORAGE_CLASS}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${DWT_DB_SERVICE_NAME}
+  labels:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+    app.kubernetes.io/component: ${DWT_COMPONENT_DATABASE}
+    exp.openshift.io/area: ${DWT_LABEL_AREA}
+spec:
+  selector:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/component: ${DWT_COMPONENT_DATABASE}
+  ports:
+    - name: postgres
+      port: ${DWT_DB_PORT}
+      targetPort: postgres
+  type: ClusterIP

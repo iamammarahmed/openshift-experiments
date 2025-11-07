@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${DWT_METASTORE_SERVICE_NAME}
+  labels:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+    app.kubernetes.io/component: ${DWT_COMPONENT_METASTORE}
+    exp.openshift.io/area: ${DWT_LABEL_AREA}
+spec:
+  selector:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/component: ${DWT_COMPONENT_METASTORE}
+  ports:
+    - name: thrift
+      port: ${DWT_METASTORE_THRIFT_PORT}
+      targetPort: thrift
+  type: ClusterIP

@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${DWT_METASTORE_DEPLOYMENT_NAME}
+  labels:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+    app.kubernetes.io/component: ${DWT_COMPONENT_METASTORE}
+    exp.openshift.io/area: ${DWT_LABEL_AREA}
+spec:
+  replicas: ${DWT_METASTORE_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${DWT_APP_NAME}
+      app.kubernetes.io/component: ${DWT_COMPONENT_METASTORE}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ${DWT_APP_NAME}
+        app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+        app.kubernetes.io/component: ${DWT_COMPONENT_METASTORE}
+        exp.openshift.io/area: ${DWT_LABEL_AREA}
+    spec:
+      serviceAccountName: ${DWT_SERVICE_ACCOUNT_NAME}
+      containers:
+        - name: metastore
+          image: ${DWT_METASTORE_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: ${DWT_METASTORE_THRIFT_PORT}
+              name: thrift
+          env:
+            - name: HIVE_METASTORE_DB_HOST
+              value: ${DWT_DB_SERVICE_NAME}
+            - name: HIVE_METASTORE_DB_PORT
+              value: "${DWT_DB_PORT}"
+            - name: HIVE_METASTORE_DB_NAME
+              value: ${DWT_DB_NAME}
+            - name: HIVE_METASTORE_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_DB_SECRET_NAME}
+                  key: username
+            - name: HIVE_METASTORE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_DB_SECRET_NAME}
+                  key: password
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: accessKey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: secretKey
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: region
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: endpoint
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: bucket
+            - name: JAVA_TOOL_OPTIONS
+              value: "${DWT_METASTORE_JAVA_TOOL_OPTIONS}"
+          readinessProbe:
+            tcpSocket:
+              port: thrift
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: thrift
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          volumeMounts:
+            - name: hive-config
+              mountPath: /opt/hive/conf/hive-site.xml
+              subPath: hive-site.xml
+            - name: hive-config
+              mountPath: /opt/hadoop/conf/core-site.xml
+              subPath: core-site.xml
+          resources:
+            requests:
+              cpu: ${DWT_METASTORE_CPU_REQUEST}
+              memory: ${DWT_METASTORE_MEMORY_REQUEST}
+            limits:
+              cpu: ${DWT_METASTORE_CPU_LIMIT}
+              memory: ${DWT_METASTORE_MEMORY_LIMIT}
+      volumes:
+        - name: hive-config
+          configMap:
+            name: ${DWT_CONFIGMAP_NAME}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 185
+      restartPolicy: Always

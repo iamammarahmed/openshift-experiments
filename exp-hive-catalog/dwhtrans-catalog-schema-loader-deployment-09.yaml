@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${DWT_SCHEMA_LOADER_DEPLOYMENT_NAME}
+  labels:
+    app.kubernetes.io/name: ${DWT_APP_NAME}
+    app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+    app.kubernetes.io/component: ${DWT_COMPONENT_SCHEMA_LOADER}
+    exp.openshift.io/area: ${DWT_LABEL_AREA}
+spec:
+  replicas: ${DWT_SCHEMA_LOADER_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${DWT_APP_NAME}
+      app.kubernetes.io/component: ${DWT_COMPONENT_SCHEMA_LOADER}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ${DWT_APP_NAME}
+        app.kubernetes.io/part-of: ${DWT_PART_OF_LABEL}
+        app.kubernetes.io/component: ${DWT_COMPONENT_SCHEMA_LOADER}
+        exp.openshift.io/area: ${DWT_LABEL_AREA}
+    spec:
+      serviceAccountName: ${DWT_SERVICE_ACCOUNT_NAME}
+      initContainers:
+        - name: schema-sync
+          image: ${DWT_SCHEMA_SYNC_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: accessKey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: secretKey
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: region
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: endpoint
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: ${DWT_S3_SECRET_NAME}
+                  key: bucket
+            - name: SCHEMA_S3_PREFIX
+              value: ${DWT_S3_SCHEMA_PREFIX}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              mkdir -p /schema
+              if [[ -z "${SCHEMA_S3_PREFIX}" ]]; then
+                echo "SCHEMA_S3_PREFIX must be set to a folder prefix within the bucket" >&2
+                exit 1
+              fi
+              endpoint_url="${S3_ENDPOINT}"
+              if [[ "${endpoint_url}" != http://* && "${endpoint_url}" != https://* ]]; then
+                endpoint_url="https://${endpoint_url}"
+              fi
+              prefix="${SCHEMA_S3_PREFIX%/}/"
+              echo "Looking up latest schema object under s3://${S3_BUCKET}/${prefix}" >&2
+              latest_key="$(aws s3api list-objects-v2 \
+                --bucket "${S3_BUCKET}" \
+                --prefix "${prefix}" \
+                --query 'sort_by(Contents, &LastModified)[-1].Key' \
+                --output text \
+                --endpoint-url "${endpoint_url}" || true)"
+              if [[ -z "${latest_key}" || "${latest_key}" == "None" ]]; then
+                echo "No schema files found in s3://${S3_BUCKET}/${prefix}" >&2
+                exit 1
+              fi
+              object_name="${latest_key##*/}"
+              echo "Copying ${latest_key} to /schema/${object_name}" >&2
+              aws s3 cp \
+                "s3://${S3_BUCKET}/${latest_key}" \
+                "/schema/${object_name}" \
+                --endpoint-url "${endpoint_url}"
+              echo "${object_name}" > /schema/latest.txt
+          volumeMounts:
+            - name: schema-work
+              mountPath: /schema
+      containers:
+        - name: ddl-runner
+          image: ${DWT_SCHEMA_RUNNER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HIVE_CONF_DIR
+              value: /opt/hive/conf
+            - name: SCHEMA_S3_PREFIX
+              value: ${DWT_S3_SCHEMA_PREFIX}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              if [[ ! -s /schema/latest.txt ]]; then
+                echo "latest.txt not found; ensure the schema-sync init container completed successfully" >&2
+                exit 1
+              fi
+              latest_name="$(head -n1 /schema/latest.txt)"
+              schema_path="/schema/${latest_name}"
+              if [[ ! -f "${schema_path}" ]]; then
+                echo "Expected schema artifact ${schema_path} is missing" >&2
+                exit 1
+              fi
+              echo "Executing Hive DDL from ${schema_path}" >&2
+              hive -f "${schema_path}"
+              echo "Schema load complete; sleeping to keep container available for logs" >&2
+              sleep infinity
+          volumeMounts:
+            - name: schema-work
+              mountPath: /schema
+            - name: hive-config
+              mountPath: /opt/hive/conf/hive-site.xml
+              subPath: hive-site.xml
+            - name: hive-config
+              mountPath: /opt/hadoop/conf/core-site.xml
+              subPath: core-site.xml
+          resources:
+            requests:
+              cpu: ${DWT_SCHEMA_CPU_REQUEST}
+              memory: ${DWT_SCHEMA_MEMORY_REQUEST}
+            limits:
+              cpu: ${DWT_SCHEMA_CPU_LIMIT}
+              memory: ${DWT_SCHEMA_MEMORY_LIMIT}
+      volumes:
+        - name: schema-work
+          persistentVolumeClaim:
+            claimName: ${DWT_SCHEMA_LOADER_PVC_NAME}
+        - name: hive-config
+          configMap:
+            name: ${DWT_CONFIGMAP_NAME}
+      restartPolicy: Always
