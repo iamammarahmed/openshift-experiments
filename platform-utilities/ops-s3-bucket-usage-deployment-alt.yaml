@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-bucket-usage-dep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3-bucket-usage
+  template:
+    metadata:
+      labels:
+        app: s3-bucket-usage
+    spec:
+      containers:
+          - name: usage
+            image: amazon/aws-cli:latest
+            env:
+              - name: BUCKET
+                value: my-bucket
+              - name: BUCKET_CAPACITY_GB
+                value: "100"
+              - name: AWS_REGION
+                value: us-east-1
+            envFrom:
+              - secretRef:
+                  name: s3-credentials
+            command:
+              - /bin/sh
+              - -c
+              - |
+                S3_ENDPOINT="$AWS_ENDPOINT_URL"
+                if [ "${S3_ENDPOINT#http}" = "$S3_ENDPOINT" ]; then
+                  S3_ENDPOINT="http://$S3_ENDPOINT"
+                fi
+                while true; do
+                  USED=$(aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://$BUCKET --recursive --summarize | awk '/Total Size/ {print $3}')
+                  CAPACITY_BYTES=$((BUCKET_CAPACITY_GB*1024*1024*1024))
+                  FREE_BYTES=$((CAPACITY_BYTES-USED))
+                  USED_GB=$(awk "BEGIN {printf \"%.2f\", $USED/1024/1024/1024}")
+                  FREE_GB=$(awk "BEGIN {printf \"%.2f\", $FREE_BYTES/1024/1024/1024}")
+                  USAGE_PERCENT=$((USED*100/CAPACITY_BYTES))
+                  echo "Bucket capacity: $BUCKET_CAPACITY_GB GB"
+                  echo "Used: $USED_GB GB"
+                  echo "Free: $FREE_GB GB"
+                  echo "Usage: $USAGE_PERCENT%"
+                  if [ "$USAGE_PERCENT" -gt 60 ]; then
+                    echo "Usage exceeds 60%, deleting objects older than 30 days"
+                    THRESHOLD=$(date -d '30 days ago' +%s)
+                    TMP="/tmp/s3-objects-$$.txt"
+                    touch "$TMP"
+                    aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://$BUCKET --recursive > "$TMP"
+                    while IFS= read -r line
+                    do
+                      FILE_DATE=$(echo "$line" | awk '{print $1" "$2}')
+                      FILE_EPOCH=$(date -d "$FILE_DATE" +%s)
+                      if [ $FILE_EPOCH -lt $THRESHOLD ]; then
+                        KEY=$(echo "$line" | awk '{print $4}')
+                        if [ "${KEY#dwh-spark/}" != "$KEY" ] || [ "${KEY#dwh-airflow/}" != "$KEY" ]; then
+                          if [ "${KEY: -1}" != "/" ]; then
+                            aws --endpoint-url "$S3_ENDPOINT" s3 rm s3://$BUCKET/$KEY
+                          fi
+                        fi
+                      fi
+                    done < "$TMP"
+                    rm "$TMP"
+                  fi
+                done
+                sleep infinity
